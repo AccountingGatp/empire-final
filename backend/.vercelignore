@@ -1,0 +1,13 @@
+node_modules
+storage
+downloads
+downloads_payout
+*.xlsx
+*.log
+final.js
+import_file.js
+import_final.js
+process.js
+xola_account.js
+xola_payout.js
+utils.js
