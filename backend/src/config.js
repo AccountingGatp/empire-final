@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const config = {
   port: Number(process.env.PORT) || 4000,
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   mongoUri:
     process.env.MONGODB_URI ||
     'mongodb+srv://diwakar_db_user:qwertyuiop@cluster0.dble07g.mongodb.net/empire_final',
