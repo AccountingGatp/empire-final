@@ -1,7 +1,9 @@
 // Client for the Empire Express backend.
 
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  "https://empire-final-api.vercel.app";
+
 
 export type TaskStatus =
   | "pending"
