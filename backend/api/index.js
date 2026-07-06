@@ -2,7 +2,7 @@
 // The Express app and the Mongo connection are built lazily and cached across
 // warm invocations. Any startup failure is returned as a readable 500 instead
 // of crashing the invocation (FUNCTION_INVOCATION_FAILED).
-import { createApp } from '../src/app.js';
+import { createApp } from '../index.js';
 import { connectDB } from '../src/db.js';
 
 let app;
