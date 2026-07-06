@@ -1,10 +1,10 @@
 const express = require('express');
-const fs = require('fs');
 const Run = require('../models/Run');
 const FileTask = require('../models/FileTask');
 const processor = require('../services/processor');
 const summary = require('../services/summary');
 const importFile = require('../services/importFile');
+const storage = require('../services/storage');
 
 const router = express.Router();
 
@@ -166,10 +166,11 @@ router.get('/runs/:id/summary/:type/file', async (req, res) => {
   if (!run) return res.status(404).json({ error: 'run not found' });
 
   const part = run.summaries?.[type];
-  if (!part || part.status !== 'ready' || !part.filePath || !fs.existsSync(part.filePath)) {
+  if (!part || part.status !== 'ready' || !part.storageKey) {
     return res.status(409).json({ error: 'summary not ready' });
   }
-  res.download(part.filePath, part.fileName || `summary_${type}.xlsx`);
+  const url = await storage.getDownloadUrl(part.storageKey, part.fileName || `summary_${type}.xlsx`);
+  res.redirect(url);
 });
 
 // POST /api/runs/:id/import -> build the single Empire_Xola_JE_<MONTH>_Import.xlsx
@@ -197,20 +198,22 @@ router.get('/runs/:id/import/file', async (req, res) => {
   if (!run) return res.status(404).json({ error: 'run not found' });
 
   const imp = run.importFile;
-  if (!imp || imp.status !== 'ready' || !imp.filePath || !fs.existsSync(imp.filePath)) {
+  if (!imp || imp.status !== 'ready' || !imp.storageKey) {
     return res.status(409).json({ error: 'import file not ready' });
   }
-  res.download(imp.filePath, imp.fileName || 'Empire_Xola_JE_Import.xlsx');
+  const url = await storage.getDownloadUrl(imp.storageKey, imp.fileName || 'Empire_Xola_JE_Import.xlsx');
+  res.redirect(url);
 });
 
-// GET /api/tasks/:id/file -> stream the downloaded workbook to the browser.
+// GET /api/tasks/:id/file -> redirect to a presigned B2 URL for the workbook.
 router.get('/tasks/:id/file', async (req, res) => {
   const task = await FileTask.findById(req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
-  if (task.status !== 'done' || !task.filePath || !fs.existsSync(task.filePath)) {
+  if (task.status !== 'done' || !task.storageKey) {
     return res.status(409).json({ error: 'file not ready' });
   }
-  res.download(task.filePath, task.fileName || 'export.xlsx');
+  const url = await storage.getDownloadUrl(task.storageKey, task.fileName || 'export.xlsx');
+  res.redirect(url);
 });
 
 module.exports = router;

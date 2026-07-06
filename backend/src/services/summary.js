@@ -1,12 +1,11 @@
-const fs = require('fs');
-const path = require('path');
 const XLSX = require('xlsx');
-const config = require('../config');
 const Run = require('../models/Run');
 const FileTask = require('../models/FileTask');
+const storage = require('./storage');
 
 // Combine the "Summary" sheet from every downloaded workbook into one file,
 // one sheet per seller. Adapted from process.js (combineSummaries).
+// Source files and the combined output both live in Backblaze B2.
 
 const SUMMARY_SHEET = 'Summary';
 
@@ -30,20 +29,21 @@ function toSheetName(baseName, used) {
   return name;
 }
 
-// Build summary_<type>.xlsx from the run's successfully-downloaded files.
-function buildSummaryWorkbook(runId, type, tasks) {
+// Build summary_<type>.xlsx from the run's successfully-downloaded files (B2).
+async function buildSummaryWorkbook(runId, type, tasks) {
   const outWb = XLSX.utils.book_new();
   const used = new Set();
   let added = 0;
   let skipped = 0;
 
   for (const t of tasks) {
-    if (!t.filePath || !fs.existsSync(t.filePath)) {
+    if (!t.storageKey) {
       skipped++;
       continue;
     }
     try {
-      const wb = XLSX.readFile(t.filePath);
+      const buf = await storage.getObjectBuffer(t.storageKey);
+      const wb = XLSX.read(buf, { type: 'buffer' });
       if (!wb.SheetNames.includes(SUMMARY_SHEET)) {
         skipped++;
         continue;
@@ -62,11 +62,11 @@ function buildSummaryWorkbook(runId, type, tasks) {
   }
 
   const fileName = `summary_${type}.xlsx`;
-  const outPath = path.join(config.storageDir, String(runId), fileName);
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  XLSX.writeFile(outWb, outPath);
+  const key = `runs/${runId}/${fileName}`;
+  const buffer = XLSX.write(outWb, { type: 'buffer', bookType: 'xlsx' });
+  await storage.putObject(key, buffer);
 
-  return { filePath: outPath, fileName, sheetCount: added, skipped };
+  return { storageKey: key, fileName, sheetCount: added, skipped };
 }
 
 // Generate both the account and payout summaries for a run. Never throws.
@@ -84,10 +84,10 @@ async function generateRunSummaries(runId) {
         .sort({ sellerName: 1 })
         .lean();
 
-      const result = buildSummaryWorkbook(runId, type, tasks);
+      const result = await buildSummaryWorkbook(runId, type, tasks);
       run.summaries[type] = {
         status: 'ready',
-        filePath: result.filePath,
+        storageKey: result.storageKey,
         fileName: result.fileName,
         sheetCount: result.sheetCount,
         skipped: result.skipped,
@@ -97,7 +97,7 @@ async function generateRunSummaries(runId) {
     } catch (err) {
       run.summaries[type] = {
         status: 'failed',
-        filePath: null,
+        storageKey: null,
         fileName: null,
         sheetCount: 0,
         skipped: 0,

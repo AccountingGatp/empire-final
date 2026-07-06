@@ -29,7 +29,7 @@ const fileTaskSchema = new mongoose.Schema(
     downloadUrl: { type: String, default: null },
 
     fileName: { type: String, default: null },
-    filePath: { type: String, default: null },
+    storageKey: { type: String, default: null }, // B2 object key
     sizeBytes: { type: Number, default: 0 },
 
     attempts: { type: Number, default: 0 },

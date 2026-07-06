@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const config = require('../config');
 
 // Consolidated + modified from xola_account.js, xola_payout.js and final.js.
@@ -90,21 +88,18 @@ async function waitForFile(fileUrl, onTick) {
   );
 }
 
-// Download the generated workbook to `outPath`. Returns bytes written.
-async function downloadExcel(fileUrl, outPath) {
+// Download the generated workbook into memory and return the buffer.
+async function downloadBuffer(fileUrl) {
   const res = await fetch(fileUrl, { method: 'GET', headers: downloadHeaders });
   if (!res.ok) {
     throw new Error(`download failed: ${res.status} ${res.statusText}`);
   }
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  const buffer = Buffer.from(await res.arrayBuffer());
-  fs.writeFileSync(outPath, buffer);
-  return buffer.length;
+  return Buffer.from(await res.arrayBuffer());
 }
 
 module.exports = {
   fetchDelegators,
   createExport,
   waitForFile,
-  downloadExcel,
+  downloadBuffer,
 };

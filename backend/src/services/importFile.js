@@ -1,9 +1,7 @@
-const fs = require('fs');
-const path = require('path');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
-const config = require('../config');
 const Run = require('../models/Run');
+const storage = require('./storage');
 
 // Combined + modified from import_file.js and import_final.js.
 // Reads the account summary workbook (summary_account.xlsx, one revenue sheet
@@ -123,8 +121,7 @@ function periodMeta(month) {
 }
 
 // Build the flat journal-entry lines from the account summary workbook.
-function buildLines(summaryPath, meta) {
-  const wb = XLSX.readFile(summaryPath);
+function buildLines(wb, meta) {
   const lines = [];
   const warnings = [];
 
@@ -175,8 +172,8 @@ function buildLines(summaryPath, meta) {
   return { lines, warnings };
 }
 
-// Write the single final import workbook (import_final format/styling).
-async function writeFinalImport(lines, outPath) {
+// Build the single final import workbook (import_final format/styling) as a buffer.
+async function writeFinalImport(lines) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'GATP Solutions';
   const ws = wb.addWorksheet('Journal Entry', { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -209,8 +206,7 @@ async function writeFinalImport(lines, outPath) {
     row.getCell(5).numFmt = MONEY;
   }
 
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  await wb.xlsx.writeFile(outPath);
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 // Generate the import file for a run. Never throws.
@@ -225,13 +221,16 @@ async function generateImportFile(runId) {
   try {
     // The revenue report (Method | Gross | Processing | Service | Net) is the
     // transactions export, labeled 'account'. The Sales Revenue JE is built from it.
-    const summaryPath = run.summaries?.account?.filePath;
-    if (!summaryPath || !fs.existsSync(summaryPath)) {
+    const summaryKey = run.summaries?.account?.storageKey;
+    if (!summaryKey) {
       throw new Error('account summary not found — generate the summary first');
     }
 
+    const buf = await storage.getObjectBuffer(summaryKey);
+    const wb = XLSX.read(buf, { type: 'buffer' });
+
     const meta = periodMeta(run.month);
-    const { lines, warnings } = buildLines(summaryPath, meta);
+    const { lines, warnings } = buildLines(wb, meta);
     if (!lines.length) {
       throw new Error('no journal lines produced from the account summary');
     }
@@ -240,13 +239,14 @@ async function generateImportFile(runId) {
     const totalCredit = round2(lines.reduce((s, l) => s + (l.credit || 0), 0));
     const balanced = round2(totalDebit - totalCredit) === 0;
 
-    const outPath = path.join(config.storageDir, String(runId), meta.fileName);
-    await writeFinalImport(lines, outPath);
+    const buffer = await writeFinalImport(lines);
+    const key = `runs/${runId}/${meta.fileName}`;
+    await storage.putObject(key, buffer);
 
     run.importFile = {
       status: 'ready',
       fileName: meta.fileName,
-      filePath: outPath,
+      storageKey: key,
       lineCount: lines.length,
       totalDebit,
       totalCredit,

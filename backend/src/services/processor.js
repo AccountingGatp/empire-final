@@ -1,14 +1,14 @@
-const path = require('path');
 const config = require('../config');
 const Run = require('../models/Run');
 const FileTask = require('../models/FileTask');
 const xola = require('./xola');
+const storage = require('./storage');
 
 const REPORT_TYPES = ['account', 'payout'];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Make a filesystem-safe file name from a seller name.
+// Make a safe file name from a seller name.
 function safeName(name) {
   return String(name || 'seller')
     .replace(/[\\/?*[\]:<>|"]/g, '_')
@@ -16,8 +16,9 @@ function safeName(name) {
     .slice(0, 120);
 }
 
-function storagePathFor(runId, type, sellerName) {
-  return path.join(config.storageDir, String(runId), type, `${safeName(sellerName)}.xlsx`);
+// B2 object key for a seller's report of a given type.
+function objectKeyFor(runId, type, sellerName) {
+  return `runs/${runId}/${type}/${safeName(sellerName)}.xlsx`;
 }
 
 // Phase A: create the export job and record its (unique) S3 URL. Returns the URL.
@@ -40,20 +41,21 @@ async function createTaskExport(task) {
   return fileUrl;
 }
 
-// Phase B: wait for the file to appear, then download it to its type folder.
+// Phase B: wait for the file to appear, then download it and store it in B2.
 async function finishTask(task) {
   await xola.waitForFile(task.downloadUrl);
 
   task.status = 'downloading';
   await task.save();
 
-  const outPath = storagePathFor(task.run, task.type, task.sellerName);
-  const bytes = await xola.downloadExcel(task.downloadUrl, outPath);
+  const buffer = await xola.downloadBuffer(task.downloadUrl);
+  const key = objectKeyFor(task.run, task.type, task.sellerName);
+  await storage.putObject(key, buffer);
 
   task.status = 'done';
-  task.filePath = outPath;
-  task.fileName = path.basename(outPath);
-  task.sizeBytes = bytes;
+  task.storageKey = key;
+  task.fileName = `${safeName(task.sellerName)}.xlsx`;
+  task.sizeBytes = buffer.length;
   await task.save();
 }
 
@@ -226,4 +228,4 @@ async function retryTask(taskId) {
   return FileTask.findById(taskId);
 }
 
-module.exports = { processRun, retryTask, storagePathFor };
+module.exports = { processRun, retryTask };

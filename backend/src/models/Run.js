@@ -9,7 +9,7 @@ const summaryPartSchema = new mongoose.Schema(
       enum: ['idle', 'generating', 'ready', 'failed'],
       default: 'idle',
     },
-    filePath: { type: String, default: null },
+    storageKey: { type: String, default: null }, // B2 object key
     fileName: { type: String, default: null },
     sheetCount: { type: Number, default: 0 }, // sellers combined
     skipped: { type: Number, default: 0 }, // files with no "Summary" sheet
@@ -27,7 +27,7 @@ const importFileSchema = new mongoose.Schema(
       enum: ['idle', 'generating', 'ready', 'failed'],
       default: 'idle',
     },
-    filePath: { type: String, default: null },
+    storageKey: { type: String, default: null }, // B2 object key
     fileName: { type: String, default: null },
     lineCount: { type: Number, default: 0 },
     totalDebit: { type: Number, default: 0 },

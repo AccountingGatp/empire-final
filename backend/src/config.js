@@ -1,5 +1,4 @@
 require('dotenv').config();
-const path = require('path');
 
 const config = {
   port: Number(process.env.PORT) || 4000,
@@ -27,8 +26,20 @@ const config = {
   // exports created in the same second collide. Stagger keeps them distinct.
   exportStaggerMs: Number(process.env.EXPORT_STAGGER_MS) || 2000,
 
-  // Where downloaded workbooks are stored (per run).
-  storageDir: path.join(__dirname, '..', 'storage'),
+  // Backblaze B2 (S3-compatible) object storage — where workbooks are kept.
+  b2: {
+    endpoint: process.env.B2_ENDPOINT || '', // e.g. https://s3.us-east-005.backblazeb2.com
+    // Region must match the endpoint's; derive it from the endpoint if unset.
+    region:
+      process.env.B2_REGION ||
+      (process.env.B2_ENDPOINT || '').match(/s3\.([^.]+)\.backblazeb2\.com/)?.[1] ||
+      'us-east-005',
+    bucket: process.env.B2_BUCKET || '',
+    keyId: process.env.B2_KEY_ID || '',
+    appKey: process.env.B2_APP_KEY || '',
+    // How long presigned download links stay valid.
+    urlExpirySeconds: Number(process.env.B2_URL_EXPIRY) || 600,
+  },
 };
 
 module.exports = config;
