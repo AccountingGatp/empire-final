@@ -2,8 +2,8 @@
 // The Express app and the Mongo connection are built lazily and cached across
 // warm invocations. Any startup failure is returned as a readable 500 instead
 // of crashing the invocation (FUNCTION_INVOCATION_FAILED).
-const { createApp } = require('../src/app');
-const { connectDB } = require('../src/db');
+import { createApp } from '../src/app.js';
+import { connectDB } from '../src/db.js';
 
 let app;
 let dbPromise;
@@ -21,7 +21,7 @@ async function ensureReady() {
   await dbPromise;
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     await ensureReady();
   } catch (err) {
@@ -37,4 +37,4 @@ module.exports = async (req, res) => {
     return;
   }
   return app(req, res);
-};
+}

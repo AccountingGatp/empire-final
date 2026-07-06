@@ -1,4 +1,4 @@
-const config = require('../config');
+import config from '../config.js';
 
 // Consolidated + modified from xola_account.js, xola_payout.js and final.js.
 // One module that can create either report type, wait for the async export
@@ -97,9 +97,4 @@ async function downloadBuffer(fileUrl) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-module.exports = {
-  fetchDelegators,
-  createExport,
-  waitForFile,
-  downloadBuffer,
-};
+export { fetchDelegators, createExport, waitForFile, downloadBuffer };

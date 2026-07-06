@@ -1,7 +1,7 @@
-const XLSX = require('xlsx');
-const Run = require('../models/Run');
-const FileTask = require('../models/FileTask');
-const storage = require('./storage');
+import XLSX from 'xlsx';
+import Run from '../models/Run.js';
+import FileTask from '../models/FileTask.js';
+import * as storage from './storage.js';
 
 // Combine the "Summary" sheet from every downloaded workbook into one file,
 // one sheet per seller. Adapted from process.js (combineSummaries).
@@ -109,4 +109,4 @@ async function generateRunSummaries(runId) {
   }
 }
 
-module.exports = { generateRunSummaries };
+export { generateRunSummaries };

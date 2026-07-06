@@ -1,10 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-const runsRouter = require('./routes/runs');
+import express from 'express';
+import cors from 'cors';
+import runsRouter from './routes/runs.js';
 
 // Build the Express app (no listen, no DB connect) so it can be reused by
 // server.js (local) and api/index.js (Vercel serverless handler).
-function createApp() {
+export function createApp() {
   const app = express();
   app.use(cors()); // allow all origins
   app.use(express.json());
@@ -20,5 +20,3 @@ function createApp() {
 
   return app;
 }
-
-module.exports = { createApp };

@@ -1,7 +1,7 @@
-const mongoose = require('mongoose');
-const config = require('./config');
+import mongoose from 'mongoose';
+import config from './config.js';
 
-async function connectDB() {
+export async function connectDB() {
   // Reuse an existing connection on warm serverless invocations.
   // readyState: 1 = connected, 2 = connecting.
   if (mongoose.connection.readyState === 1) return mongoose.connection;
@@ -17,5 +17,3 @@ async function connectDB() {
   console.log(`[db] connected to MongoDB (${mongoose.connection.name})`);
   return mongoose.connection;
 }
-
-module.exports = { connectDB };

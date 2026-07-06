@@ -1,8 +1,8 @@
-const config = require('../config');
-const Run = require('../models/Run');
-const FileTask = require('../models/FileTask');
-const xola = require('./xola');
-const storage = require('./storage');
+import config from '../config.js';
+import Run from '../models/Run.js';
+import FileTask from '../models/FileTask.js';
+import * as xola from './xola.js';
+import * as storage from './storage.js';
 
 const REPORT_TYPES = ['account', 'payout'];
 
@@ -228,4 +228,4 @@ async function retryTask(taskId) {
   return FileTask.findById(taskId);
 }
 
-module.exports = { processRun, retryTask };
+export { processRun, retryTask };

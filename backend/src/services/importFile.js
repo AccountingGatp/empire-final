@@ -1,7 +1,7 @@
-const XLSX = require('xlsx');
-const ExcelJS = require('exceljs');
-const Run = require('../models/Run');
-const storage = require('./storage');
+import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import Run from '../models/Run.js';
+import * as storage from './storage.js';
 
 // Combined + modified from import_file.js and import_final.js.
 // Reads the account summary workbook (summary_account.xlsx, one revenue sheet
@@ -263,4 +263,4 @@ async function generateImportFile(runId) {
   }
 }
 
-module.exports = { generateImportFile };
+export { generateImportFile };

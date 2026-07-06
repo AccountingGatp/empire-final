@@ -1,10 +1,10 @@
-const express = require('express');
-const Run = require('../models/Run');
-const FileTask = require('../models/FileTask');
-const processor = require('../services/processor');
-const summary = require('../services/summary');
-const importFile = require('../services/importFile');
-const storage = require('../services/storage');
+import express from 'express';
+import Run from '../models/Run.js';
+import FileTask from '../models/FileTask.js';
+import * as processor from '../services/processor.js';
+import * as summary from '../services/summary.js';
+import * as importFile from '../services/importFile.js';
+import * as storage from '../services/storage.js';
 
 const router = express.Router();
 
@@ -216,4 +216,4 @@ router.get('/tasks/:id/file', async (req, res) => {
   res.redirect(url);
 });
 
-module.exports = router;
+export default router;

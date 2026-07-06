@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // One combined-summary workbook (per report type), built from every seller's
 // "Summary" sheet — the web equivalent of process.js.
@@ -78,4 +78,4 @@ const runSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Run', runSchema);
+export default mongoose.model('Run', runSchema);

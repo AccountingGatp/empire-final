@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // One workbook to export + download: (seller x report-type).
 const fileTaskSchema = new mongoose.Schema(
@@ -38,4 +38,4 @@ const fileTaskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('FileTask', fileTaskSchema);
+export default mongoose.model('FileTask', fileTaskSchema);

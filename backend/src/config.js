@@ -1,4 +1,4 @@
-require('dotenv').config();
+import 'dotenv/config';
 
 const config = {
   port: Number(process.env.PORT) || 4000,
@@ -41,4 +41,4 @@ const config = {
   },
 };
 
-module.exports = config;
+export default config;

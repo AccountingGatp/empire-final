@@ -1,10 +1,10 @@
-const {
+import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-} = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const config = require('../config');
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import config from '../config.js';
 
 // Backblaze B2 via its S3-compatible API. All run artifacts (per-seller exports,
 // combined summaries, and the final import workbook) live here instead of on the
@@ -67,4 +67,4 @@ async function getDownloadUrl(key, filename) {
   });
 }
 
-module.exports = { putObject, getObjectBuffer, getDownloadUrl, XLSX_CONTENT_TYPE };
+export { putObject, getObjectBuffer, getDownloadUrl, XLSX_CONTENT_TYPE };
