@@ -46,6 +46,15 @@ function monthRange(month: string) {
   return { from: `${year}-${pad(mon)}-01`, to: `${year}-${pad(mon)}-${pad(last)}` };
 }
 
+// The calendar month before today, as 'YYYY-MM' (accounting closes last month).
+function previousMonth() {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+
 function formatBytes(b: number) {
   if (!b) return "—";
   if (b < 1024) return `${b} B`;
@@ -386,7 +395,7 @@ function ImportCard({
 // ---- page ----------------------------------------------------------------
 
 export default function HomePage() {
-  const [month, setMonth] = useState("2026-05");
+  const [month, setMonth] = useState("");
   const [run, setRun] = useState<Run | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -422,6 +431,12 @@ export default function HomePage() {
     },
     [poll]
   );
+
+  // Default to the previous calendar month (computed on the client to avoid a
+  // build-time/runtime hydration mismatch).
+  useEffect(() => {
+    setMonth(previousMonth());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -481,8 +496,10 @@ export default function HomePage() {
         : r
     );
     try {
-      const next = await generateSummary(run.id);
-      setRun(next);
+      // Don't overwrite the optimistic "generating" with the POST response —
+      // it can race ahead of the background job and still read "idle", which
+      // would hide the loader. Let polling reconcile to the real state.
+      await generateSummary(run.id);
       ensurePolling(run.id);
     } catch (e) {
       setError((e as Error).message);
@@ -497,8 +514,8 @@ export default function HomePage() {
       r ? { ...r, importFile: { ...r.importFile, status: "generating" } } : r
     );
     try {
-      const next = await generateImportFile(run.id);
-      setRun(next);
+      // Keep the optimistic "generating" (see handleGenerateSummary).
+      await generateImportFile(run.id);
       ensurePolling(run.id);
     } catch (e) {
       setError((e as Error).message);
