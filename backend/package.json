@@ -18,6 +18,8 @@
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "google-auth-library": "^10.9.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.3",
     "xlsx": "^0.18.5"
   }

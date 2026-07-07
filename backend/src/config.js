@@ -25,6 +25,15 @@ const config = {
   // exports created in the same second collide. Stagger keeps them distinct.
   exportStaggerMs: Number(process.env.EXPORT_STAGGER_MS) || 2000,
 
+  // Google sign-in + session auth.
+  auth: {
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
+    // Only accounts on this domain may sign in.
+    allowedDomain: process.env.ALLOWED_EMAIL_DOMAIN || 'gatpsolutions.com',
+    sessionTtl: process.env.SESSION_TTL || '7d',
+  },
+
   // Backblaze B2 (S3-compatible) object storage — where workbooks are kept.
   b2: {
     endpoint: process.env.B2_ENDPOINT || '', // e.g. https://s3.us-east-005.backblazeb2.com

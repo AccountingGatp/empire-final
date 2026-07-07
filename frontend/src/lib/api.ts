@@ -76,25 +76,84 @@ async function json<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+// ---- auth ----------------------------------------------------------------
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+};
+
+const TOKEN_KEY = "empire_token";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+export function setToken(token: string) {
+  if (typeof window !== "undefined") window.localStorage.setItem(TOKEN_KEY, token);
+}
+export function clearToken() {
+  if (typeof window !== "undefined") window.localStorage.removeItem(TOKEN_KEY);
+}
+
+// JSON headers + the Bearer token (if signed in).
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = getToken();
+  return {
+    ...extra,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+// Exchange a Google ID token for a session (enforces the allowed domain server-side).
+export async function loginWithGoogle(
+  credential: string
+): Promise<{ token: string; user: AuthUser }> {
+  return json(
+    await fetch(`${API_URL}/api/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    })
+  );
+}
+
+// Validate the stored session and return the current user.
+export async function fetchMe(): Promise<{ user: AuthUser }> {
+  return json(
+    await fetch(`${API_URL}/api/auth/me`, { headers: authHeaders(), cache: "no-store" })
+  );
+}
+
 export async function startRun(month: string): Promise<Run> {
   return json(
     await fetch(`${API_URL}/api/runs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ month }),
     })
   );
 }
 
 export async function getRun(id: string): Promise<Run> {
-  return json(await fetch(`${API_URL}/api/runs/${id}`, { cache: "no-store" }));
+  return json(
+    await fetch(`${API_URL}/api/runs/${id}`, {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+  );
 }
 
 export async function retryTask(
   id: string
 ): Promise<{ id: string; status: TaskStatus; error: string | null }> {
   return json(
-    await fetch(`${API_URL}/api/tasks/${id}/retry`, { method: "POST" })
+    await fetch(`${API_URL}/api/tasks/${id}/retry`, {
+      method: "POST",
+      headers: authHeaders(),
+    })
   );
 }
 
@@ -104,7 +163,10 @@ export function fileUrl(taskId: string): string {
 
 export async function generateSummary(runId: string): Promise<Run> {
   return json(
-    await fetch(`${API_URL}/api/runs/${runId}/summary`, { method: "POST" })
+    await fetch(`${API_URL}/api/runs/${runId}/summary`, {
+      method: "POST",
+      headers: authHeaders(),
+    })
   );
 }
 
@@ -114,7 +176,10 @@ export function summaryUrl(runId: string, type: "account" | "payout"): string {
 
 export async function generateImportFile(runId: string): Promise<Run> {
   return json(
-    await fetch(`${API_URL}/api/runs/${runId}/import`, { method: "POST" })
+    await fetch(`${API_URL}/api/runs/${runId}/import`, {
+      method: "POST",
+      headers: authHeaders(),
+    })
   );
 }
 

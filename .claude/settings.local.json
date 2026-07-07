@@ -8,7 +8,8 @@
       "Bash(npm run *)",
       "Bash(DELEGATOR_LIMIT=1 CONCURRENCY=2 node server.js)",
       "Bash(curl -s http://localhost:4000/api/health)",
-      "Bash(curl -s -i -X POST http://localhost:4000/api/runs/6a4766c5aad74788f977df6b/summary)"
+      "Bash(curl -s -i -X POST http://localhost:4000/api/runs/6a4766c5aad74788f977df6b/summary)",
+      "PowerShell(\"cleared\")"
     ]
   }
 }

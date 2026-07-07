@@ -4,6 +4,7 @@ import cors from 'cors';
 import config from './src/config.js';
 import { connectDB } from './src/db.js';
 import runsRouter from './src/routes/runs.js';
+import authRouter from './src/routes/auth.js';
 
 // Connect to Mongo once, cached across warm serverless invocations. Clear the
 // cache on failure so the next request can retry (don't poison it).
@@ -38,6 +39,7 @@ export function createApp() {
     }
   });
 
+  app.use('/api/auth', authRouter);
   app.use('/api', runsRouter);
 
   // Fallback error handler.
