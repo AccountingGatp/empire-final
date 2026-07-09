@@ -146,6 +146,17 @@ export async function getRun(id: string): Promise<Run> {
   );
 }
 
+// The most recent run for a month (with its files), or null if none exists yet.
+export async function getLatestRunForMonth(month: string): Promise<Run | null> {
+  const res = await json<{ run: Run | null }>(
+    await fetch(`${API_URL}/api/runs/latest?month=${encodeURIComponent(month)}`, {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+  );
+  return res.run;
+}
+
 export async function retryTask(
   id: string
 ): Promise<{ id: string; status: TaskStatus; error: string | null }> {

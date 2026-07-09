@@ -115,6 +115,23 @@ router.get('/runs', async (_req, res) => {
   );
 });
 
+// GET /api/runs/latest?month=YYYY-MM -> the most recent run for that month
+// (full, with tasks), or { run: null } if none. Lets the UI show an existing
+// month's files instead of regenerating them.
+router.get('/runs/latest', async (req, res) => {
+  const month = req.query.month;
+  const base = month ? { month } : {};
+  // Prefer the most recent FINISHED run (it actually has the files) over a
+  // newer run that is still processing or got stuck mid-run.
+  let run = await Run.findOne({
+    ...base,
+    status: { $in: ['completed', 'completed_with_errors'] },
+  }).sort({ createdAt: -1 });
+  if (!run) run = await Run.findOne(base).sort({ createdAt: -1 });
+  if (!run) return res.json({ run: null });
+  res.json({ run: await serializeRun(run) });
+});
+
 // GET /api/runs/:id -> run + tasks (frontend polls this).
 router.get('/runs/:id', async (req, res) => {
   const run = await Run.findById(req.params.id);

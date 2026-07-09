@@ -22,6 +22,7 @@ import {
   fileUrl,
   generateImportFile,
   generateSummary,
+  getLatestRunForMonth,
   getRun,
   importFileUrl,
   retryTask,
@@ -398,11 +399,14 @@ export default function HomePage() {
   const [month, setMonth] = useState("");
   const [run, setRun] = useState<Run | null>(null);
   const [starting, setStarting] = useState(false);
+  const [restoring, setRestoring] = useState(true);
+  // Whether WE are actively watching a run this session. This is separate from a
+  // stored run's status — nothing polls or generates unless the user acts.
+  const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const range = monthRange(month);
-  const isActive = run && run.status === "running";
 
   // Keep polling while downloading, building a summary, or building the import.
   const isBusy = (r: Run) =>
@@ -411,13 +415,22 @@ export default function HomePage() {
     r.summaries.payout.status === "generating" ||
     r.importFile.status === "generating";
 
+  // The run belonging to the currently-selected month (if any) and its state.
+  const runForMonth = run && run.month === month ? run : null;
+  const inProgress = !!runForMonth && isBusy(runForMonth); // still generating
+  const settled = !!runForMonth && !isBusy(runForMonth); // already generated
+  const isActive = isPolling;
+
   const poll = useCallback(async (id: string) => {
     try {
       const next = await getRun(id);
       setRun(next);
-      if (!isBusy(next) && pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
+      if (!isBusy(next)) {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+        setIsPolling(false);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -427,15 +440,32 @@ export default function HomePage() {
   const ensurePolling = useCallback(
     (id: string) => {
       if (pollRef.current) clearInterval(pollRef.current);
+      setIsPolling(true);
       pollRef.current = setInterval(() => poll(id), 4000);
     },
     [poll]
   );
 
-  // Default to the previous calendar month (computed on the client to avoid a
-  // build-time/runtime hydration mismatch).
+  // On load: default to the previous month and just SHOW its existing files (if
+  // any). Nothing polls or generates automatically — the user drives everything.
   useEffect(() => {
-    setMonth(previousMonth());
+    let cancelled = false;
+    (async () => {
+      const m = previousMonth();
+      if (cancelled) return;
+      setMonth(m);
+      try {
+        const existing = await getLatestRunForMonth(m);
+        if (!cancelled) setRun(existing);
+      } catch {
+        /* no existing run — fine */
+      }
+      if (!cancelled) setRestoring(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -443,6 +473,27 @@ export default function HomePage() {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  // Switching month: show that month's existing run (or clear if none). No polling.
+  async function handleMonthChange(m: string) {
+    if (isPolling) return; // don't switch while actively watching a run
+    setMonth(m);
+    setError(null);
+    try {
+      const existing = await getLatestRunForMonth(m);
+      setRun(existing);
+    } catch {
+      setRun(null);
+    }
+  }
+
+  // Resume watching an in-progress run (explicit — e.g. after a refresh).
+  function handleResume() {
+    if (!runForMonth) return;
+    setError(null);
+    poll(runForMonth.id);
+    ensurePolling(runForMonth.id);
+  }
 
   async function handleStart() {
     setError(null);
@@ -552,8 +603,8 @@ export default function HomePage() {
                 id="month"
                 type="month"
                 value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                disabled={!!isActive}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                disabled={!!isActive || restoring}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:w-48"
               />
             </div>
@@ -570,19 +621,48 @@ export default function HomePage() {
               </div>
             )}
 
-            <Button
-              onClick={handleStart}
-              disabled={starting || !!isActive || !range}
-              className="sm:ml-auto"
-            >
-              {starting || isActive ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <PlayCircle className="size-4" />
+            <div className="flex gap-2 sm:ml-auto">
+              {inProgress && (
+                <Button onClick={handleResume} disabled={isPolling || restoring}>
+                  {isPolling ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <PlayCircle className="size-4" />
+                  )}
+                  {isPolling ? "Processing…" : "Resume"}
+                </Button>
               )}
-              {isActive ? "Processing…" : "Start Download"}
-            </Button>
+              <Button
+                onClick={handleStart}
+                disabled={starting || isPolling || restoring || !range}
+                variant={inProgress || settled ? "outline" : "default"}
+              >
+                {starting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : inProgress || settled ? (
+                  <RotateCw className="size-4" />
+                ) : (
+                  <PlayCircle className="size-4" />
+                )}
+                {inProgress || settled ? "Regenerate" : "Generate"}
+              </Button>
+            </div>
           </div>
+
+          {settled && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              This month was already generated — the files are shown below. Use{" "}
+              <span className="font-medium text-foreground">Regenerate</span> to re-download.
+            </p>
+          )}
+
+          {inProgress && !isPolling && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              A run for this month is in progress. Click{" "}
+              <span className="font-medium text-foreground">Resume</span> to watch it, or{" "}
+              <span className="font-medium text-foreground">Regenerate</span> to start over.
+            </p>
+          )}
 
           {error && (
             <div className="mt-4 flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
