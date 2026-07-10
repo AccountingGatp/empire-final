@@ -36,6 +36,8 @@ const importFileSchema = new mongoose.Schema(
     warnings: { type: [String], default: [] },
     error: { type: String, default: null },
     generatedAt: { type: Date, default: null },
+    // For the converted import: { EUR: 1.13, GBP: 1.34, ... } (rate to USD).
+    rates: { type: Object, default: null },
   },
   { _id: false }
 );
@@ -74,6 +76,8 @@ const runSchema = new mongoose.Schema(
 
     // Final journal-entry import workbook, built from the account summary.
     importFile: { type: importFileSchema, default: () => ({}) },
+    // Same, but with every currency converted to USD (frankfurter.dev rates).
+    importFileUsd: { type: importFileSchema, default: () => ({}) },
   },
   { timestamps: true }
 );

@@ -66,17 +66,23 @@ async function serializeRun(run) {
       account: shapeSummary(run.summaries?.account),
       payout: shapeSummary(run.summaries?.payout),
     },
-    importFile: {
-      status: run.importFile?.status || 'idle',
-      fileName: run.importFile?.fileName || null,
-      lineCount: run.importFile?.lineCount || 0,
-      totalDebit: run.importFile?.totalDebit || 0,
-      totalCredit: run.importFile?.totalCredit || 0,
-      balanced: !!run.importFile?.balanced,
-      warnings: run.importFile?.warnings || [],
-      error: run.importFile?.error || null,
-      generatedAt: run.importFile?.generatedAt || null,
-    },
+    importFile: shapeImport(run.importFile),
+    importFileUsd: shapeImport(run.importFileUsd),
+  };
+}
+
+function shapeImport(imp) {
+  return {
+    status: imp?.status || 'idle',
+    fileName: imp?.fileName || null,
+    lineCount: imp?.lineCount || 0,
+    totalDebit: imp?.totalDebit || 0,
+    totalCredit: imp?.totalCredit || 0,
+    balanced: !!imp?.balanced,
+    warnings: imp?.warnings || [],
+    rates: imp?.rates || null,
+    error: imp?.error || null,
+    generatedAt: imp?.generatedAt || null,
   };
 }
 
@@ -209,18 +215,38 @@ router.post('/runs/:id/import', async (req, res) => {
   res.status(202).json(await serializeRun(await Run.findById(run._id)));
 });
 
-// GET /api/runs/:id/import/file -> download the final import workbook.
-router.get('/runs/:id/import/file', async (req, res) => {
+// POST /api/runs/:id/import-usd -> build the all-USD (converted) import workbook.
+router.post('/runs/:id/import-usd', async (req, res) => {
   const run = await Run.findById(req.params.id);
   if (!run) return res.status(404).json({ error: 'run not found' });
 
-  const imp = run.importFile;
+  if (run.summaries?.account?.status !== 'ready') {
+    return res.status(409).json({ error: 'generate the summary first' });
+  }
+
+  importFile
+    .generateImportFile(run._id, { convert: true })
+    .catch((err) => console.error('[import-usd] fatal', err));
+
+  res.status(202).json(await serializeRun(await Run.findById(run._id)));
+});
+
+// GET /api/runs/:id/import/file          -> download the standard import workbook.
+// GET /api/runs/:id/import-usd/file      -> download the converted (USD) workbook.
+router.get('/runs/:id/import/file', (req, res) => sendImport(req, res, 'importFile'));
+router.get('/runs/:id/import-usd/file', (req, res) => sendImport(req, res, 'importFileUsd'));
+
+async function sendImport(req, res, field) {
+  const run = await Run.findById(req.params.id);
+  if (!run) return res.status(404).json({ error: 'run not found' });
+
+  const imp = run[field];
   if (!imp || imp.status !== 'ready' || !imp.storageKey) {
     return res.status(409).json({ error: 'import file not ready' });
   }
   const url = await storage.getDownloadUrl(imp.storageKey, imp.fileName || 'Empire_Xola_JE_Import.xlsx');
   res.redirect(url);
-});
+}
 
 // GET /api/tasks/:id/file -> redirect to a presigned B2 URL for the workbook.
 router.get('/tasks/:id/file', async (req, res) => {

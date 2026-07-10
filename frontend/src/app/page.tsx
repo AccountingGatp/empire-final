@@ -21,10 +21,12 @@ import { cn } from "@/lib/utils";
 import {
   fileUrl,
   generateImportFile,
+  generateImportFileUsd,
   generateSummary,
   getLatestRunForMonth,
   getRun,
   importFileUrl,
+  importFileUsdUrl,
   retryTask,
   startRun,
   summaryUrl,
@@ -283,110 +285,162 @@ function SummaryCard({
 
 // ---- import file ---------------------------------------------------------
 
-function ImportCard({
-  run,
+const money = (n: number) =>
+  n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function ImportVariant({
+  title,
+  subtitle,
+  imp,
+  disabled,
   onGenerate,
+  downloadHref,
 }: {
-  run: Run;
+  title: string;
+  subtitle: string;
+  imp: ImportFile;
+  disabled: boolean;
   onGenerate: () => void;
+  downloadHref: string;
 }) {
-  const imp: ImportFile = run.importFile;
-  // The Sales Revenue import is built from the transactions/revenue summary,
-  // which is labeled 'account'.
-  const summaryReady = run.summaries.account.status === "ready";
   const busy = imp.status === "generating";
-  const money = (n: number) =>
-    n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const rates = imp.rates ? Object.entries(imp.rates) : [];
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-        <div>
-          <CardTitle className="text-base">Import File</CardTitle>
-          <CardDescription>
-            Build the single QBO journal-entry import from the revenue summary.
-          </CardDescription>
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
-        <Button size="sm" onClick={onGenerate} disabled={busy || !summaryReady}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onGenerate}
+          disabled={busy || disabled}
+          className="shrink-0"
+        >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
           {busy
             ? "Building…"
             : imp.status === "ready" || imp.status === "failed"
               ? "Rebuild"
-              : "Create Import File"}
+              : "Generate"}
         </Button>
+      </div>
+
+      {imp.status === "failed" && (
+        <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          <AlertCircle className="size-4 shrink-0" />
+          {imp.error || "Failed to build import file."}
+        </div>
+      )}
+
+      {(imp.status === "ready" || busy) && (
+        <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary">
+            <FileText className="size-4 text-muted-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {imp.fileName || "Empire_Xola_JE_Import.xlsx"}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {busy
+                ? "Building journal entries…"
+                : `${imp.lineCount} lines · Dr ${money(imp.totalDebit)} / Cr ${money(
+                    imp.totalCredit
+                  )}`}
+              {!busy && rates.length > 0 && (
+                <> · {rates.map(([c, r]) => `${c} ${r}`).join(", ")}</>
+              )}
+            </p>
+          </div>
+
+          {!busy && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0",
+                imp.balanced
+                  ? "border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-transparent bg-red-500/10 text-red-600 dark:text-red-400"
+              )}
+            >
+              {imp.balanced ? "✓ Balanced" : "✗ Out of balance"}
+            </Badge>
+          )}
+
+          {imp.status === "ready" && (
+            <Button
+              render={<a href={downloadHref} download />}
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+            >
+              <Download className="size-3.5" />
+              Download
+            </Button>
+          )}
+        </div>
+      )}
+
+      {imp.status === "ready" && imp.warnings.length > 0 && (
+        <div className="space-y-1 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          <p className="font-medium">Flags ({imp.warnings.length}):</p>
+          <ul className="list-inside list-disc space-y-0.5">
+            {imp.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportCard({
+  run,
+  onGenerate,
+  onGenerateUsd,
+}: {
+  run: Run;
+  onGenerate: () => void;
+  onGenerateUsd: () => void;
+}) {
+  const summaryReady = run.summaries.account.status === "ready";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Import File</CardTitle>
+        <CardDescription>
+          Build the QBO journal-entry import from the revenue summary.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        {!summaryReady && imp.status === "idle" && (
-          <p className="text-sm text-muted-foreground">
-            Generate the summary above first.
-          </p>
-        )}
-
-        {imp.status === "failed" && (
-          <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
-            <AlertCircle className="size-4" />
-            {imp.error || "Failed to build import file."}
-          </div>
-        )}
-
-        {(imp.status === "ready" || busy) && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-                <FileText className="size-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {imp.fileName || `Empire_Xola_JE_Import.xlsx`}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {busy
-                    ? "Building journal entries…"
-                    : `${imp.lineCount} lines · Dr ${money(imp.totalDebit)} / Cr ${money(
-                        imp.totalCredit
-                      )}`}
-                </p>
-              </div>
-
-              {!busy && (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "shrink-0",
-                    imp.balanced
-                      ? "border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "border-transparent bg-red-500/10 text-red-600 dark:text-red-400"
-                  )}
-                >
-                  {imp.balanced ? "✓ Balanced" : "✗ Out of balance"}
-                </Badge>
-              )}
-
-              {imp.status === "ready" && (
-                <Button
-                  render={<a href={importFileUrl(run.id)} download />}
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0"
-                >
-                  <Download className="size-3.5" />
-                  Download
-                </Button>
-              )}
-            </div>
-
-            {imp.status === "ready" && imp.warnings.length > 0 && (
-              <div className="space-y-1 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                <p className="font-medium">Class flags ({imp.warnings.length}):</p>
-                <ul className="list-inside list-disc space-y-0.5">
-                  {imp.warnings.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+      <CardContent className="space-y-4">
+        {!summaryReady ? (
+          <p className="text-sm text-muted-foreground">Generate the summary above first.</p>
+        ) : (
+          <>
+            <ImportVariant
+              title="Standard import"
+              subtitle="Amounts as reported, in each location's own currency."
+              imp={run.importFile}
+              disabled={!summaryReady}
+              onGenerate={onGenerate}
+              downloadHref={importFileUrl(run.id)}
+            />
+            <div className="border-t" />
+            <ImportVariant
+              title="Import with conversion"
+              subtitle="Every currency converted to USD (frankfurter.dev, month-end rate)."
+              imp={run.importFileUsd}
+              disabled={!summaryReady}
+              onGenerate={onGenerateUsd}
+              downloadHref={importFileUsdUrl(run.id)}
+            />
+          </>
         )}
       </CardContent>
     </Card>
@@ -411,9 +465,10 @@ export default function HomePage() {
   // Keep polling while downloading, building a summary, or building the import.
   const isBusy = (r: Run) =>
     r.status === "running" ||
-    r.summaries.account.status === "generating" ||
-    r.summaries.payout.status === "generating" ||
-    r.importFile.status === "generating";
+    r.summaries?.account?.status === "generating" ||
+    r.summaries?.payout?.status === "generating" ||
+    r.importFile?.status === "generating" ||
+    r.importFileUsd?.status === "generating";
 
   // The run belonging to the currently-selected month (if any) and its state.
   const runForMonth = run && run.month === month ? run : null;
@@ -567,6 +622,21 @@ export default function HomePage() {
     try {
       // Keep the optimistic "generating" (see handleGenerateSummary).
       await generateImportFile(run.id);
+      ensurePolling(run.id);
+    } catch (e) {
+      setError((e as Error).message);
+      poll(run.id);
+    }
+  }
+
+  async function handleGenerateImportUsd() {
+    if (!run) return;
+    setError(null);
+    setRun((r) =>
+      r ? { ...r, importFileUsd: { ...r.importFileUsd, status: "generating" } } : r
+    );
+    try {
+      await generateImportFileUsd(run.id);
       ensurePolling(run.id);
     } catch (e) {
       setError((e as Error).message);
@@ -742,7 +812,11 @@ export default function HomePage() {
 
       {/* Import file — available once the account (revenue) summary is ready */}
       {run && run.summaries.account.status === "ready" && (
-        <ImportCard run={run} onGenerate={handleGenerateImport} />
+        <ImportCard
+          run={run}
+          onGenerate={handleGenerateImport}
+          onGenerateUsd={handleGenerateImportUsd}
+        />
       )}
     </main>
   );

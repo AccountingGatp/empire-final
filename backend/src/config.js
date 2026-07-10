@@ -25,6 +25,9 @@ const config = {
   // exports created in the same second collide. Stagger keeps them distinct.
   exportStaggerMs: Number(process.env.EXPORT_STAGGER_MS) || 2000,
 
+  // FX rates for the "convert to USD" import (frankfurter.dev).
+  frankfurterBase: process.env.FRANKFURTER_BASE || 'https://api.frankfurter.dev/v1',
+
   // Google sign-in + session auth.
   auth: {
     googleClientId: process.env.GOOGLE_CLIENT_ID || '',

@@ -1,8 +1,8 @@
 // Client for the Empire Express backend.
 
 export const API_URL =
-  // process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  "https://empire-final-api.vercel.app";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // "https://empire-final-api.vercel.app";
 
 
 export type TaskStatus =
@@ -45,6 +45,7 @@ export type ImportFile = {
   totalCredit: number;
   balanced: boolean;
   warnings: string[];
+  rates: Record<string, number> | null;
   error: string | null;
   generatedAt: string | null;
 };
@@ -66,6 +67,7 @@ export type Run = {
   payout: FileTask[];
   summaries: { account: SummaryPart; payout: SummaryPart };
   importFile: ImportFile;
+  importFileUsd: ImportFile;
 };
 
 async function json<T>(res: Response): Promise<T> {
@@ -74,6 +76,46 @@ async function json<T>(res: Response): Promise<T> {
     throw new Error(body.error || `${res.status} ${res.statusText}`);
   }
   return res.json();
+}
+
+// Defaults so the UI never crashes on a backend that omits newer fields.
+const emptySummary: SummaryPart = {
+  status: "idle",
+  fileName: null,
+  sheetCount: 0,
+  skipped: 0,
+  error: null,
+  generatedAt: null,
+};
+const emptyImport: ImportFile = {
+  status: "idle",
+  fileName: null,
+  lineCount: 0,
+  totalDebit: 0,
+  totalCredit: 0,
+  balanced: false,
+  warnings: [],
+  rates: null,
+  error: null,
+  generatedAt: null,
+};
+
+function normalizeRun(r: Run): Run {
+  return {
+    ...r,
+    account: r.account ?? [],
+    payout: r.payout ?? [],
+    summaries: {
+      account: r.summaries?.account ?? emptySummary,
+      payout: r.summaries?.payout ?? emptySummary,
+    },
+    importFile: r.importFile ?? emptyImport,
+    importFileUsd: r.importFileUsd ?? emptyImport,
+  };
+}
+
+async function runJson(res: Response): Promise<Run> {
+  return normalizeRun(await json<Run>(res));
 }
 
 // ---- auth ----------------------------------------------------------------
@@ -128,7 +170,7 @@ export async function fetchMe(): Promise<{ user: AuthUser }> {
 }
 
 export async function startRun(month: string): Promise<Run> {
-  return json(
+  return runJson(
     await fetch(`${API_URL}/api/runs`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
@@ -138,7 +180,7 @@ export async function startRun(month: string): Promise<Run> {
 }
 
 export async function getRun(id: string): Promise<Run> {
-  return json(
+  return runJson(
     await fetch(`${API_URL}/api/runs/${id}`, {
       headers: authHeaders(),
       cache: "no-store",
@@ -154,7 +196,7 @@ export async function getLatestRunForMonth(month: string): Promise<Run | null> {
       cache: "no-store",
     })
   );
-  return res.run;
+  return res.run ? normalizeRun(res.run) : null;
 }
 
 export async function retryTask(
@@ -173,7 +215,7 @@ export function fileUrl(taskId: string): string {
 }
 
 export async function generateSummary(runId: string): Promise<Run> {
-  return json(
+  return runJson(
     await fetch(`${API_URL}/api/runs/${runId}/summary`, {
       method: "POST",
       headers: authHeaders(),
@@ -186,7 +228,7 @@ export function summaryUrl(runId: string, type: "account" | "payout"): string {
 }
 
 export async function generateImportFile(runId: string): Promise<Run> {
-  return json(
+  return runJson(
     await fetch(`${API_URL}/api/runs/${runId}/import`, {
       method: "POST",
       headers: authHeaders(),
@@ -196,4 +238,17 @@ export async function generateImportFile(runId: string): Promise<Run> {
 
 export function importFileUrl(runId: string): string {
   return `${API_URL}/api/runs/${runId}/import/file`;
+}
+
+export async function generateImportFileUsd(runId: string): Promise<Run> {
+  return runJson(
+    await fetch(`${API_URL}/api/runs/${runId}/import-usd`, {
+      method: "POST",
+      headers: authHeaders(),
+    })
+  );
+}
+
+export function importFileUsdUrl(runId: string): string {
+  return `${API_URL}/api/runs/${runId}/import-usd/file`;
 }
