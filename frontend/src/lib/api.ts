@@ -219,6 +219,21 @@ export function runZipUrl(runId: string): string {
   return `${API_URL}/api/runs/${runId}/files/zip`;
 }
 
+// Build the month zip and return a short-lived download URL (shows loading while building).
+export async function prepareRunZip(
+  runId: string
+): Promise<{ url: string; fileName: string }> {
+  const res = await fetch(`${runZipUrl(runId)}?json=1`, {
+    headers: authHeaders({ Accept: "application/json" }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function generateSummary(runId: string): Promise<Run> {
   return runJson(
     await fetch(`${API_URL}/api/runs/${runId}/summary`, {

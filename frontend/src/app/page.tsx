@@ -27,8 +27,8 @@ import {
   getRun,
   importFileUrl,
   importFileUsdUrl,
+  prepareRunZip,
   retryTask,
-  runZipUrl,
   startRun,
   summaryUrl,
   type FileTask,
@@ -459,6 +459,7 @@ export default function HomePage() {
   // stored run's status — nothing polls or generates unless the user acts.
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zipDownloading, setZipDownloading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const range = monthRange(month);
@@ -645,6 +646,26 @@ export default function HomePage() {
     }
   }
 
+  async function handleDownloadAll() {
+    if (!run || zipDownloading) return;
+    setZipDownloading(true);
+    setError(null);
+    try {
+      const { url, fileName } = await prepareRunZip(run.id);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName || `empire_${run.month}.zip`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setZipDownloading(false);
+    }
+  }
+
   const pct = run && run.totalTasks ? Math.round((run.doneTasks / run.totalTasks) * 100) : 0;
 
   return (
@@ -764,13 +785,18 @@ export default function HomePage() {
             </div>
             {run.doneTasks > 0 && run.status !== "running" && (
               <Button
-                render={<a href={runZipUrl(run.id)} download />}
                 size="sm"
                 variant="outline"
                 className="shrink-0"
+                disabled={zipDownloading}
+                onClick={handleDownloadAll}
               >
-                <Download className="size-3.5" />
-                Download all ({run.month})
+                {zipDownloading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
+                {zipDownloading ? "Preparing zip…" : `Download all (${run.month})`}
               </Button>
             )}
           </CardHeader>

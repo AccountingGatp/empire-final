@@ -261,6 +261,8 @@ router.get('/tasks/:id/file', async (req, res) => {
 });
 
 // GET /api/runs/:id/files/zip -> zip every ready file for the run's month.
+// Prefer ?json=1 or Accept: application/json for a { url } response (loading UI);
+// otherwise redirect to the presigned download.
 router.get('/runs/:id/files/zip', async (req, res) => {
   const run = await Run.findById(req.params.id);
   if (!run) return res.status(404).json({ error: 'run not found' });
@@ -268,6 +270,10 @@ router.get('/runs/:id/files/zip', async (req, res) => {
   try {
     const { storageKey, fileName } = await zipFiles.buildRunZip(run._id);
     const url = await storage.getDownloadUrl(storageKey, fileName, storage.ZIP_CONTENT_TYPE);
+    const wantJson =
+      req.query.json === '1' ||
+      (req.headers.accept || '').includes('application/json');
+    if (wantJson) return res.json({ url, fileName });
     res.redirect(url);
   } catch (err) {
     const status = /no downloaded|run not found/.test(err.message) ? 409 : 500;
