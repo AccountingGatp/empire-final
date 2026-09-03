@@ -4,6 +4,7 @@ import FileTask from '../models/FileTask.js';
 import * as processor from '../services/processor.js';
 import * as summary from '../services/summary.js';
 import * as importFile from '../services/importFile.js';
+import * as zipFiles from '../services/zipFiles.js';
 import * as storage from '../services/storage.js';
 
 const router = express.Router();
@@ -257,6 +258,21 @@ router.get('/tasks/:id/file', async (req, res) => {
   }
   const url = await storage.getDownloadUrl(task.storageKey, task.fileName || 'export.xlsx');
   res.redirect(url);
+});
+
+// GET /api/runs/:id/files/zip -> zip every ready file for the run's month.
+router.get('/runs/:id/files/zip', async (req, res) => {
+  const run = await Run.findById(req.params.id);
+  if (!run) return res.status(404).json({ error: 'run not found' });
+
+  try {
+    const { storageKey, fileName } = await zipFiles.buildRunZip(run._id);
+    const url = await storage.getDownloadUrl(storageKey, fileName, storage.ZIP_CONTENT_TYPE);
+    res.redirect(url);
+  } catch (err) {
+    const status = /no downloaded|run not found/.test(err.message) ? 409 : 500;
+    res.status(status).json({ error: err.message });
+  }
 });
 
 export default router;

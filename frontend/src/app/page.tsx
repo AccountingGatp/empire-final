@@ -28,6 +28,7 @@ import {
   importFileUrl,
   importFileUsdUrl,
   retryTask,
+  runZipUrl,
   startRun,
   summaryUrl,
   type FileTask,
@@ -746,19 +747,32 @@ export default function HomePage() {
       {/* Progress */}
       {run && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Processing</CardTitle>
-            <CardDescription>
-              {run.phase === "fetching_delegators" && "Fetching the seller list from Xola…"}
-              {run.phase === "processing" &&
-                `Exporting and downloading ${run.totalTasks} files (${run.sellerCount} sellers × account + payout).`}
-              {run.phase === "done" &&
-                (run.status === "completed"
-                  ? "All files downloaded successfully."
-                  : run.status === "completed_with_errors"
-                    ? `${run.failedTasks} file(s) failed — retry them below.`
-                    : run.error || "Run failed.")}
-            </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle className="text-base">Processing</CardTitle>
+              <CardDescription>
+                {run.phase === "fetching_delegators" && "Fetching the seller list from Xola…"}
+                {run.phase === "processing" &&
+                  `Exporting and downloading ${run.totalTasks} files (${run.sellerCount} sellers × account + payout).`}
+                {run.phase === "done" &&
+                  (run.status === "completed"
+                    ? "All files downloaded successfully."
+                    : run.status === "completed_with_errors"
+                      ? `${run.failedTasks} file(s) failed — retry them below.`
+                      : run.error || "Run failed.")}
+              </CardDescription>
+            </div>
+            {run.doneTasks > 0 && run.status !== "running" && (
+              <Button
+                render={<a href={runZipUrl(run.id)} download />}
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+              >
+                <Download className="size-3.5" />
+                Download all ({run.month})
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-5">
             <Stepper run={run} />

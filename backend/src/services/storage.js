@@ -54,17 +54,19 @@ async function getObjectBuffer(key) {
   return Buffer.from(await res.Body.transformToByteArray());
 }
 
+const ZIP_CONTENT_TYPE = 'application/zip';
+
 // A short-lived presigned URL that downloads the object as `filename`.
-async function getDownloadUrl(key, filename) {
+async function getDownloadUrl(key, filename, contentType = XLSX_CONTENT_TYPE) {
   const cmd = new GetObjectCommand({
     Bucket: config.b2.bucket,
     Key: key,
     ResponseContentDisposition: `attachment; filename="${filename}"`,
-    ResponseContentType: XLSX_CONTENT_TYPE,
+    ResponseContentType: contentType,
   });
   return getSignedUrl(getClient(), cmd, {
     expiresIn: config.b2.urlExpirySeconds,
   });
 }
 
-export { putObject, getObjectBuffer, getDownloadUrl, XLSX_CONTENT_TYPE };
+export { putObject, getObjectBuffer, getDownloadUrl, XLSX_CONTENT_TYPE, ZIP_CONTENT_TYPE };

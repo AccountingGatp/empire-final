@@ -1,8 +1,8 @@
 // Client for the Empire Express backend.
 
 export const API_URL =
-  // process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  "https://empire-final-api.vercel.app";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // "https://empire-final-api.vercel.app";
 
 
 export type TaskStatus =
@@ -212,6 +212,11 @@ export async function retryTask(
 
 export function fileUrl(taskId: string): string {
   return `${API_URL}/api/tasks/${taskId}/file`;
+}
+
+// Zip of every ready file for a run (account, payout, summaries, imports).
+export function runZipUrl(runId: string): string {
+  return `${API_URL}/api/runs/${runId}/files/zip`;
 }
 
 export async function generateSummary(runId: string): Promise<Run> {
