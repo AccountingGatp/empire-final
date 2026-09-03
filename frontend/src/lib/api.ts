@@ -227,11 +227,20 @@ export async function prepareRunZip(
     headers: authHeaders({ Accept: "application/json" }),
     cache: "no-store",
   });
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      "Zip API returned a file instead of JSON — restart the backend and try again."
+    );
+  }
+  const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `${res.status} ${res.statusText}`);
   }
-  return res.json();
+  if (!body.url) {
+    throw new Error("Zip API response missing download url");
+  }
+  return body as { url: string; fileName: string };
 }
 
 export async function generateSummary(runId: string): Promise<Run> {
