@@ -1,14 +1,21 @@
 import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
+
 import config from './src/config.js';
 import { connectDB } from './src/db.js';
+
 import runsRouter from './src/routes/runs.js';
 import authRouter from './src/routes/auth.js';
 
-// Connect to Mongo once, cached across warm serverless invocations. Clear the
-// cache on failure so the next request can retry (don't poison it).
+import { requireAuth } from './src/middleware/auth.js';
+
+// ==================================================
+// MongoDB connection
+// ==================================================
+
 let dbPromise;
+
 function connectOnce() {
   if (!dbPromise) {
     dbPromise = connectDB().catch((err) => {
@@ -16,54 +23,126 @@ function connectOnce() {
       throw err;
     });
   }
+
   return dbPromise;
 }
 
-// Build the Express app.
+// ==================================================
+// Express application
+// ==================================================
+
 export function createApp() {
   const app = express();
-  app.use(cors()); // allow all origins
-  app.use(express.json());
 
-  // Liveness check — no DB required.
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  // ==================================================
+  // CORS
+  // ==================================================
+  //
+  // Keep this simple.
+  // This is the same approach used by the old
+  // working developer version.
+  //
 
-  // Ensure the DB is connected before handling data routes (serverless-friendly).
+  app.use(cors());
+
+  // ==================================================
+  // JSON BODY
+  // ==================================================
+
+  app.use(express.json({ limit: '10mb' }));
+
+  // ==================================================
+  // HEALTH CHECK
+  // ==================================================
+
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      ok: true,
+      version: 'working-cors-1',
+    });
+  });
+
+  // ==================================================
+  // DATABASE
+  // ==================================================
+  //
+  // Health endpoint above does NOT require MongoDB.
+  // All routes below will wait for MongoDB.
+  //
+
   app.use(async (_req, res, next) => {
     try {
       await connectOnce();
       next();
     } catch (err) {
       console.error('[db] not ready:', err);
-      res.status(500).json({ error: 'Backend not ready', detail: err.message });
+
+      res.status(500).json({
+        error: 'Backend not ready',
+        detail: err.message,
+      });
     }
   });
 
-  app.use('/api/auth', authRouter);
-  app.use('/api', runsRouter);
+  // ==================================================
+  // GOOGLE AUTH
+  // ==================================================
+  //
+  // IMPORTANT:
+  // This route is PUBLIC.
+  // Google login does not have a JWT yet.
+  //
 
-  // Fallback error handler.
+  app.use('/api/auth', authRouter);
+
+  // ==================================================
+  // PROTECTED API
+  // ==================================================
+  //
+  // Everything else under /api requires login.
+  //
+
+  app.use('/api', requireAuth, runsRouter);
+
+  // ==================================================
+  // ERROR HANDLER
+  // ==================================================
+
   app.use((err, _req, res, _next) => {
     console.error('[error]', err);
-    res.status(500).json({ error: err.message || 'internal error' });
+
+    res.status(500).json({
+      error: err.message || 'internal error',
+    });
   });
 
   return app;
 }
 
+// ==================================================
+// Create Express app
+// ==================================================
+
 const app = createApp();
 
-// Default export = the Express app instance (a valid serverless handler/server).
+// Vercel/serverless uses this export
 export default app;
 
-// Only listen when run directly (`node index.js` / `npm start`); serverless
-// platforms import the default export and manage the port themselves.
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+// ==================================================
+// Local development
+// ==================================================
+
+const isMain =
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
 if (isMain) {
   connectOnce()
     .then(() => {
       app.listen(config.port, () => {
-        console.log(`[server] listening on http://localhost:${config.port}`);
+        console.log(
+          `[server] listening on http://localhost:${config.port}`
+        );
       });
     })
     .catch((err) => {
